@@ -4,6 +4,7 @@
 #include <assert.h>
 #include "ltypes.h"
 #include "pinyin.h"
+#include "pyzip.h"
 
 #define CPB         0x7b
 #define MCP(a,b)    (((a)<<8)|(b))
@@ -456,7 +457,6 @@ int cp_unzip_size(const char *in,int size)
 #define O3(_p,_a,_b,_c) *(uint32_t*)_p=((_a)|((_b)<<8)|((_c)<<16));_p+=3
 #define O4(_p,_a,_b,_c,_d) *(uint32_t*)_p=((_a)|((_b)<<8)|((_c)<<16)|((_d)<<24));_p+=4
 
-#if ENABLE_PY2
 int cp_unzip_py(const char *restrict in,char *restrict out,int size)
 {
 	int s,y;
@@ -488,204 +488,6 @@ int cp_unzip_py(const char *restrict in,char *restrict out,int size)
 	*out=0;
 	return (int)(size_t)(out-orig);
 }
-#else
-int cp_unzip_py(const char *restrict in,char *restrict out,int size)
-{
-	int s,y;
-	char *orig=out;
-	for(;size>0;size--)
-	{
-		s=*(uint8_t*)in++;
-		if(s>=CPB)
-		{
-			uint16_t cp=cp_list[s-CPB];
-			s=cp>>8;
-			y=cp&0xff;
-		}
-		else if(s<=0x3a)
-		{
-			uint16_t cp=cp_list[5+128+s];
-			s=cp>>8;
-			y=cp&0xff;
-		}
-		else
-		{
-			y=*(uint8_t*)in++;
-		}
-		int ms=M(s);
-		if((ms&M3('i','u','v')))
-		{
-			if(s=='i')
-			{
-				O2(out,'c','h');
-			}
-			else if(s=='u')
-			{
-				O2(out,'s','h');
-			}
-			else
-			{
-				O2(out,'z','h');
-			}
-		}
-		else
-		{
-			*out++=s;
-		}
-		switch(y){
-			case 'a':
-				if(s!='a')
-					*out++='a';
-				break;
-			case 'b':
-				O2(out,'o','u');
-				break;
-			case 'c':
-				O3(out,'i','a','o');
-				break;
-			case 'd':
-				if((ms&M5('j','l','n','q','x')))
-				{
-					O4(out,'i','a','n','g');
-				}
-				else
-				{
-					O4(out,'u','a','n','g');
-				}
-				break;
-			case 'e':
-				if(s!='e')
-					*out++='e';
-				break;
-			case 'f':
-				*out++='e';*out++='n';
-				break;
-			case 'g':
-				if(s!='e')
-				{
-					O3(out,'e','n','g');
-				}
-				else
-				{
-					O2(out,'n','g');
-				}
-				break;
-			case 'h':
-				if(s!='a')
-				{
-					O3(out,'a','n','g');
-				}
-				else
-				{
-					O2(out,'n','g');
-				}
-				break;
-			case 'j':
-				O2(out,'a','n');
-				break;
-			case 'k':
-				O2(out,'a','o');
-				break;
-			case 'l':
-				O2(out,'a','i');
-				break;
-			case 'm':
-				O3(out,'i','a','n');
-				break;
-			case 'n':
-				if(!(ms&M2('a','e')))
-				{
-					O2(out,'i','n');
-				}
-				else
-				{
-					*out++='n';
-				}
-				break;
-			case 'o':
-				if((ms&M8('a','b','f','m','p','q','w','y')))
-				{
-					*out++='o';
-				}
-				else if(s!='o')
-				{
-					O2(out,'u','o');
-				}
-				break;
-			case 'p':
-				O2(out,'u','n');
-				break;
-			case 'q':
-				O2(out,'i','u');
-				break;
-			case 'r':
-				if(s=='e')
-				{
-					*out++='r';
-				}
-				else
-				{
-					O3(out,'u','a','n');
-				}
-				break;
-			case 's':
-				if((ms&M3('j','q','x')))
-				{
-					O4(out,'i','o','n','g');
-				}
-				else
-				{
-					O3(out,'o','n','g');
-				}
-				break;
-			case 't':
-				O2(out,'u','e');
-				break;
-			case 'v':
-				if((ms&M2('l','n')))
-				{
-					*out++='v';
-				}
-				else
-				{
-					O2(out,'u','i');
-				}
-				break;
-			case 'w':
-				if((ms&M5('d','j','l','q','x')))
-				{
-					O2(out,'i','a');
-				}
-				else
-				{
-					O2(out,'u','a');
-				}
-				break;
-			case 'x':
-				O2(out,'i','e');
-				break;
-			case 'y':
-				if((ms&M6('i','g','h','k','u','v')))
-				{
-					O3(out,'u','a','i');
-				}
-				else
-				{
-					O3(out,'i','n','g');
-				}
-				break;
-			case 'z':
-				O2(out,'e','i');
-				break;
-			default:
-				*out++=y;
-				break;
-		}
-	}
-	*out=0;
-	return (int)(size_t)(out-orig);
-}
-#endif
 
 int cp_unzip_jp(const char *restrict in,char *restrict out,int size)
 {
@@ -867,16 +669,6 @@ int bs_get_alloc_size(const uint8_t *p)
 	return ret;
 }
 
-static inline int bs_get_len(const uint8_t *p)
-{
-	return p[0]&0x3f;
-}
-
-static inline int bs_get_method(const uint8_t *p)
-{
-	return p[0]>>6;
-}
-
 void bs_zip(const char *in,int len,uint8_t *out,int method,const uint8_t *map)
 {
 	if(len<=3 || method==0)
@@ -924,6 +716,110 @@ const uint8_t *bs_unzip(const uint8_t *in,uint8_t *out)
 		out[i]=bs_get_bits(&bs,bits);
 	}
 	return out;
+}
+
+int bs_cmp_with_raw(const uint8_t *raw,const uint8_t *key,int n)
+{
+	int method=bs_get_method(key);
+	int len=bs_get_len(key);
+	int rlen=raw[0];
+	int m=MIN(len,rlen);
+	if(m>n) m=n;
+	raw++;
+	if(method==0)
+	{
+		int ret=memcmp(raw,key+1,m);
+		if(ret!=0)
+			return ret;
+		if(m==n)
+			return 0;
+		return rlen-len;
+	}
+	BITSTREAM bs={
+		.p=(uint8_t*)key+1
+	};
+	int bits=method==1?5:6;
+	for(int i=0;i<m;i++)
+	{
+		uint8_t c1=raw[i];
+		uint8_t c2=bs_get_bits(&bs,bits);
+		if(c1<c2)
+			return -1;
+		else if(c1>c2)
+			return 1;
+	}
+	if(m==n)
+		return 0;
+	return rlen-len;
+}
+
+int bs_cmp_with(const uint8_t *key1,const uint8_t *key2,int n)
+{
+	int method=bs_get_method(key1);
+	if(method==0)
+		return bs_cmp_with_raw(key1,key2,n);
+	else if(bs_get_method(key2)==0)
+		return -bs_cmp_with_raw(key2,key1,n);
+	BITSTREAM bs1={
+		.p=(uint8_t*)key1+1
+	};
+	BITSTREAM bs2={
+		.p=(uint8_t*)key2+1
+	};
+	int bits=method==1?5:6;
+	int len1=bs_get_len(key1);
+	int len2=bs_get_len(key2);
+	int m=MIN(len1,len2);
+	if(m>n) m=n;
+	for(int i=0;i<m;i++)
+	{
+		uint8_t c1=bs_get_bits(&bs1,bits);;
+		uint8_t c2=bs_get_bits(&bs2,bits);
+		if(c1<c2)
+			return -1;
+		else if(c1>c2)
+			return 1;
+	}
+	if(m==n)
+		return 0;
+	return len1-len2;
+}
+
+int bs_match_with_raw(const uint8_t *raw,const uint8_t *key,bool *next)
+{
+	int method=bs_get_method(key);
+	int len=bs_get_len(key);
+	int rlen=raw[0];
+	int m=MIN(len,rlen);
+	int i;
+	uint8_t c1,c2;
+	raw++;key++;
+	if(method==0)
+	{
+		for(i=0;i<m;i++)
+		{
+			c1=raw[i];
+			c2=key[i];
+			if(c1!=c2)
+				break;
+		}
+	}
+	else
+	{
+		BITSTREAM bs={
+			.p=(uint8_t*)key
+		};
+		int bits=method==1?5:6;
+				for(i=0;i<m;i++)
+		{
+			c1=raw[i];
+			c2=bs_get_bits(&bs,bits);
+			if(c1!=c2)
+				break;
+		}
+	}
+	*next=i<rlen && (i==len || c1>c2);
+	return i;
 }
 
 

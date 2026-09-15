@@ -13,11 +13,18 @@ int cz_gblen(const char *in,int size);
 
 int bs_alloc_size(int len,int *method);
 int bs_get_alloc_size(const uint8_t *p);
+static inline int bs_get_method(const uint8_t *p)
+{
+	return p[0]>>6;
+}
 static inline int bs_get_len(const uint8_t *p)
 {
 	return p[0]&0x3f;
 }
 void bs_zip(const char *in,int len,uint8_t *out,int method,const uint8_t *map);
 const uint8_t *bs_unzip(const uint8_t *in,uint8_t *out);
+int bs_cmp_with(const uint8_t *key1,const uint8_t *key2,int n);
+int bs_cmp_with_raw(const uint8_t *raw,const uint8_t *key,int n);
+int bs_match_with_raw(const uint8_t *raw,const uint8_t *key,bool *next);
 
 #endif/*_PYZIP_H_*/

@@ -9,6 +9,8 @@ function run(target){
 		env('DLL=.dll');
 		env('CFLAGS=-D_UNICODE -DUNICODE -DUSE_SYSTEM_ICONV');
 		env('LDFLAGS=-static-libgcc');
+		if(support('gcc'))
+			env('CC=$(CROSS_COMPILE)gcc');
 	}else if(target=='w64'){
 		env('CROSS_COMPILE=x86_64-w64-mingw32-');
 		env('DLL=.dll');

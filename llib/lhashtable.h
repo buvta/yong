@@ -25,8 +25,8 @@ void *l_hash_table_rand(LHashTable *h);
 void l_hash_iter_init(LHashIter *iter,LHashTable *h);
 void *l_hash_iter_next(LHashIter *iter);
 
-unsigned l_str_hash (const void *v);
-unsigned l_int_hash(const void *v);
+uint32_t l_str_hash (const void *v);
+uint32_t l_int_hash(const void *v);
 
 #define _L_HASH_DEREF_STRING(t,k) (			\
 			_Generic(&(((t*)NULL)->k),		\

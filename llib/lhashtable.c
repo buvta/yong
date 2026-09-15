@@ -7,10 +7,11 @@
 #include <assert.h>
 
 struct _lhashtable{
-	int size;
-	int offset;
+	uint32_t size;
+	uint32_t offset;
 	int deref;
 	uint32_t count;
+	uint32_t mu;
 	void **array;
 	LHashFunc hash;
 	LCmpFunc cmp;
@@ -34,10 +35,30 @@ static inline int get_real_size(int size)
 	return prime_mod[i];
 }
 
+#if L_WORD_SIZE==64
+static inline void fast_mod_init(LHashTable *f)
+{
+	f->mu = (uint32_t)(UINT32_MAX / f->size);
+}
+
+static inline uint32_t fast_mod_map(const LHashTable *f,uint32_t v)
+{
+	uint32_t size=f->size;
+	uint32_t q = (uint32_t)((uint64_t)v * f->mu >> 32);
+	uint32_t r = v - q * size;
+	if (r >= size) r -= size;
+	return r;
+}
+#else
+#define fast_mod_init(f)
+#define fast_mod_map(f,v)	((v)%(f)->size)
+#endif
+
 LHashTable *l_hash_table_new(LHashFunc hash,LCmpFunc cmp,int size,int offset)
 {
 	LHashTable *h=l_new(struct _lhashtable);
 	h->size=get_real_size(size);
+	fast_mod_init(h);
 	if(offset<0)
 	{
 		h->offset=-offset;
@@ -60,8 +81,7 @@ void l_hash_table_free(LHashTable *h,LFreeFunc func)
 	if(!h) return;
 	if(func)
 	{
-		int i;
-		for(i=0;i<h->size;i++)
+		for(int i=0;i<h->size;i++)
 			l_slist_free(h->array[i],func);
 	}
 	l_free(h->array);
@@ -71,8 +91,7 @@ void l_hash_table_free(LHashTable *h,LFreeFunc func)
 void l_hash_table_clear(LHashTable *h,LFreeFunc func)
 {
 	if(!h) return;
-	int i;
-	for(i=0;i<h->size;i++)
+	for(int i=0;i<h->size;i++)
 	{
 		if(func)
 			l_slist_free(h->array[i],func);
@@ -81,7 +100,7 @@ void l_hash_table_clear(LHashTable *h,LFreeFunc func)
 	h->count=0;
 }
 
-static inline int _hash_index(LHashTable *h,const void *item)
+static inline uint32_t _hash_index(LHashTable *h,const void *item)
 {
 	if(h->offset)
 	{
@@ -89,7 +108,7 @@ static inline int _hash_index(LHashTable *h,const void *item)
 		if(h->deref)
 			item=*(void**)item;
 	}
-	return h->hash(item)%h->size;
+	return fast_mod_map(h,h->hash(item));
 }
 
 void *l_hash_table_find(LHashTable *h,const void *item)
@@ -101,7 +120,7 @@ void *l_hash_table_find(LHashTable *h,const void *item)
 			item=*(void**)item;
 		return l_hash_table_lookup(h,item);
 	}
-	int index=h->hash(item)%h->size;
+	uint32_t index=fast_mod_map(h,h->hash(item));
 	return l_slist_find(h->array[index],item,h->cmp);
 }
 
@@ -135,9 +154,7 @@ static inline void *_slist_find_item(void *p,const void *item,LHashTable *h)
 
 void *l_hash_table_lookup(LHashTable *h,const void *key)
 {
-	// if(!h->offset)
-	//	return NULL;
-	int index=h->hash(key)%h->size;
+	int index=fast_mod_map(h,h->hash(key));
 	return _slist_find_key(h->array[index],key,h);
 }
 
@@ -146,6 +163,7 @@ static void _hash_resize(LHashTable *h)
 	int size=h->size,i;
 	void **array=h->array;
 	h->size=get_real_size(size+1);
+	fast_mod_init(h);
 	h->array=l_cnew0(h->size,void*);
 	for(i=0;i<size;i++)
 	{
@@ -153,7 +171,7 @@ static void _hash_resize(LHashTable *h)
 		while((p=head)!=NULL)
 		{
 			head=*(void**)p;
-			int index=_hash_index(h,p);
+			uint32_t index=_hash_index(h,p);
 			h->array[index]=l_slist_prepend(h->array[index],p);
 		}
 	}
@@ -174,7 +192,7 @@ bool l_hash_table_insert(LHashTable *h,void *item)
 
 void *l_hash_table_replace(LHashTable *h,void *item)
 {
-	int index=_hash_index(h,item);
+	uint32_t index=_hash_index(h,item);
 	void *old=_slist_find_item(h->array[index],item,h);
 	if(old)
 	{
@@ -195,7 +213,7 @@ void *l_hash_table_replace(LHashTable *h,void *item)
 
 void *l_hash_table_remove(LHashTable *h,void *item)
 {
-	int index=_hash_index(h,item);
+	uint32_t index=_hash_index(h,item);
 	void *old=_slist_find_item(h->array[index],item,h);
 	if(!old)
 		return NULL;
@@ -208,7 +226,7 @@ void *l_hash_table_del(LHashTable *h,const void *key)
 {
 	if(!h->offset)
 		return NULL;
-	int index=h->hash(key)%h->size;
+	uint32_t index=fast_mod_map(h,h->hash(key));
 	void *item=_slist_find_key(h->array[index],key,h);
 	if(!item)
 		return NULL;
@@ -272,10 +290,10 @@ void *l_hash_iter_next(LHashIter *iter)
 	return NULL;
 }
 
-unsigned l_str_hash (const void *v)
+uint32_t l_str_hash (const void *v)
 {
-	const unsigned char *p = v;
-	unsigned h = *p;
+	const uint8_t *p = v;
+	uint32_t h = *p;
 
 	if (h) for (p += 1; *p != '\0'; p++)
 		h = h*131 + *p;
@@ -283,8 +301,8 @@ unsigned l_str_hash (const void *v)
 	return h;
 }
 
-unsigned l_int_hash(const void *v)
+uint32_t l_int_hash(const void *v)
 {
-	return *(const unsigned *)v;
+	return *(const uint32_t *)v;
 }
 

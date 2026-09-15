@@ -60,10 +60,11 @@ int l_viterbi_decode(L_VITERBI *v)
 					break;
 				int32_t score_A=v->A?v->A(v,cur_state,choice):0;
 				int32_t score=cur_state->p+score_A+score_B;
+				uint8_t nodes=cur_state->nodes+1;
 				L_VITERBI_STATE1 *next_top=v->state[i+len].top;
 #if L_VITERBI_TOPK==1
 				if(score>next_top[0].p)
-					next_top[0]=(L_VITERBI_STATE1){.prev=k,.len=len,.p=score,.choice=choice};
+					next_top[0]=(L_VITERBI_STATE1){.prev=k,.len=len,.p=score,.choice=choice,.nodes=nodes};
 #else
 				int min_idx=0;
 				for(int t=1;t<v->topk;t++)
@@ -72,7 +73,7 @@ int l_viterbi_decode(L_VITERBI *v)
 						min_idx=t;
 				}
 				if(score > next_top[min_idx].p)
-                    next_top[min_idx]=(L_VITERBI_STATE1){.prev=k,.len=len,.p=score,.choice=choice};
+                    next_top[min_idx]=(L_VITERBI_STATE1){.prev=k,.len=len,.p=score,.choice=choice,.nodes=nodes,};
 #endif
 			}	
 		}

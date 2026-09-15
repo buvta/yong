@@ -64,9 +64,8 @@ function bihua(){
 	var SRCS=['bihua.c'];
 	env("BUILD?=l64");
 	include("../rules.txt");
-	env("CFLAGS+=-I$(TOPDIR)/include $(LLIB_CFLAGS) -Wall -DTOOLS_BIHUA");
+	env("CFLAGS+=-I$(TOPDIR)/include $(LLIB_CFLAGS) -Wall -DTOOLS_BIHUA -Wno-invalid-source-encoding");
 	env("LDFLAGS+=-Wl,-rpath='$ORIGIN'");
-	env("CFLAGS-=-O2");env("CFLAGS+=-O0");
 	cr(SRCS,'l64-gtk3/bihua','$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@ $(LLIB_LDADD)');
 }
 

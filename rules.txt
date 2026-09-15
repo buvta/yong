@@ -8,9 +8,14 @@ if(BUILD=="w32"){
 	env("CROSS_COMPILE=i686-w64-mingw32-");
 	env("CFLAGS+=-D_UNICODE -DUNICODE");
 	env("EXE=.exe");
-	env("DESTDIR=$(TOPDIR)/winim/yong/w32");
-	env("CC=$(CROSS_COMPILE)clang");
-	env("CXX=$(CROSS_COMPILE)clang++");
+	env("DESTDIR=.");
+	if(support('gcc')){
+		env("CC=$(CROSS_COMPILE)gcc");
+		env("CXX=$(CROSS_COMPILE)g++");
+	}else{
+		env("CC=$(CROSS_COMPILE)clang");
+		env("CXX=$(CROSS_COMPILE)clang++");
+	}
 }else if(BUILD=="l32"){
 	env("LDFLAGS+=-Wl,--hash-style=sysv -m32");
 	env("EXE=");

@@ -52,7 +52,7 @@
 #define MAX(a,b) ({typeof(a) _a=(a);typeof(b) _b=(b);_a<_b?_a:_b;})
 #endif
 
-#ifndef MAX
+#ifndef CLAMP
 #define CLAMP(v,a,b) MIN(MAX(a,v),b)
 #endif
 

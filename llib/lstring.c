@@ -691,6 +691,15 @@ int l_strtok(const char *str,int delim,const char *res[],int limit)
 	return count;
 }
 
+bool l_str_equal(const char *s1,const char *s2)
+{
+	if(s1==s2)
+		return true;
+	if(!s1 || !s2)
+		return false;
+	return strcmp(s1,s2)==0;
+}
+
 bool l_str_is_ascii(const char *s)
 {
 	int c;

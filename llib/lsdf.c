@@ -43,7 +43,7 @@ static sdf_cache_t *sdf_cache_new(int size)
 /**
  * 计算三次贝塞尔曲线上给定 x 坐标对应的 y 值 (精度 0.001, 使用 float)
  * 假设起点 P0 = (0, 1), 终点 P3 = (1, 0)
- * 
+ *
  * @param x  目标 x 坐标 (0~1)
  * @param x1 控制点 P1 的 x 坐标
  * @param y1 控制点 P1 的 y 坐标
@@ -98,8 +98,8 @@ float cubic_bezier_y(float x, float x1, float y1, float x2, float y2)
 
 	// 使用求得的 t 计算对应的 Y(t)
 	float one_minus_t = 1.0f - t;
-	float y = one_minus_t * one_minus_t * one_minus_t + 
-	      3.0f * one_minus_t * one_minus_t * t * y1 + 
+	float y = one_minus_t * one_minus_t * one_minus_t +
+	      3.0f * one_minus_t * one_minus_t * t * y1 +
 	      3.0f * one_minus_t * t * t * y2;
 
 	return y;
@@ -242,7 +242,14 @@ static void sdf_gen_shadow_of_rrect(uint8_t *restrict buf, int r0,int r1,L_SDF_S
 			float px = x + 0.5f;
 			float dist = sqrtf(px*px + py2)-fr1;
 			if(dist<=0)
+			{
+				if(dist<=-0.5f)
+					continue;
+				dist=(dist+0.5f)*2.0f;
+				uint8_t alpha=(uint8_t)(sqrtf(dist)*255.0f+0.5f);
+				buf[y * r01 + x]=alpha;
 				continue;
+			}
 			dist=fminf(dist,fr0);
 			uint8_t alpha=calc_shadow_alpha(dist,fr0,shadow);
 			buf[y * r01 + x]=alpha;
@@ -325,8 +332,7 @@ static void l_sdf_vline1(L_SDF_CONTEXT *ctx,int x,int y0,int y1,uint32_t c)
 {
 	int stride=ctx->stride;
 	uint32_t *p=ctx->pixels+y0*stride+x;
-	uint32_t a=L_SDF_ALPHA(c);
-	uint32_t ia=255-a;
+	uint32_t ia=255-L_SDF_ALPHA(c);
 	for(int i=y0;i<=y1;i++)
 	{
 		*p=c+l_sdf_byte_mul(*p,ia);
@@ -337,8 +343,7 @@ static void l_sdf_vline1(L_SDF_CONTEXT *ctx,int x,int y0,int y1,uint32_t c)
 static void l_sdf_hline1(L_SDF_CONTEXT *ctx,int y,int x0,int x1,uint32_t c)
 {
 	uint32_t *p=ctx->pixels+y*ctx->width+x0;
-	uint32_t a=L_SDF_ALPHA(c);
-	uint32_t ia=255-a;
+	uint32_t ia=255-L_SDF_ALPHA(c);
 	for(int i=x0;i<=x1;i++)
 	{
 		*p=c+l_sdf_byte_mul(*p,ia);
@@ -416,15 +421,29 @@ static int l_sdf_rect_r0(L_SDF_CONTEXT *ctx,int w,int h)
 	uint32_t a=L_SDF_ALPHA(c);
 	if(a!=0)
 	{
-		uint32_t ia=255-a;
 		uint32_t *p=ctx->pixels+y*ctx->stride+x;
-		for(int j=0;j<h;j++)
+		if(a==255)
 		{
-			for(int i=0;i<w;i++)
+			for(int j=0;j<h;j++)
 			{
-				p[i]=c+l_sdf_byte_mul(p[i],ia);
+				for(int i=0;i<w;i++)
+				{
+					p[i]=c;
+				}
+				p+=ctx->stride;
 			}
-			p+=ctx->stride;
+		}
+		else
+		{
+			uint32_t ia=255-a;
+			for(int j=0;j<h;j++)
+			{
+				for(int i=0;i<w;i++)
+				{
+					p[i]=c+l_sdf_byte_mul(p[i],ia);
+				}
+				p+=ctx->stride;
+			}
 		}
 	}
 	float line_width=ctx->line_width;
@@ -474,26 +493,52 @@ int l_sdf_rect(L_SDF_CONTEXT *ctx,int w,int h,int r)
 	uint32_t *pixels=ctx->pixels;
 	if(fa)
 	{
-		uint32_t ialpha=255-fa;
-		for(int i=0;i<r;i++)
+		if(fa==255)
 		{
-			int b=ctx->stride*(y+i)+(x+r);
-			int e=b+w-2*r-1;
-			for(int j=b;j<=e;j++)
-				pixels[j]=fillColor+l_sdf_byte_mul(pixels[j],ialpha);
+			for(int i=0;i<r;i++)
+			{
+				int b=ctx->stride*(y+i)+(x+r);
+				int e=b+w-2*r-1;
+				for(int j=b;j<=e;j++)
+					pixels[j]=fillColor;
+			}
+			for(int i=r;i<h-r;i++)
+			{
+				int b=ctx->stride*(y+i)+x;
+				int e=b+w-1;
+				for(int j=b;j<=e;j++)
+					pixels[j]=fillColor;
+			}
+			for(int i=h-r;i<h;i++){
+				int b=ctx->stride*(y+i)+x+r;
+				int e=b+w-2*r-1;
+				for(int j=b;j<=e;j++)
+					pixels[j]=fillColor;
+			}
 		}
-		for(int i=r;i<h-r;i++)
+		else
 		{
-			int b=ctx->stride*(y+i)+x;
-			int e=b+w-1;
-			for(int j=b;j<=e;j++)
-				pixels[j]=fillColor+l_sdf_byte_mul(pixels[j],ialpha);
-		}
-		for(int i=h-r;i<h;i++){
-			int b=ctx->stride*(y+i)+x+r;
-			int e=b+w-2*r-1;
-			for(int j=b;j<=e;j++)
-				pixels[j]=fillColor+l_sdf_byte_mul(pixels[j],ialpha);
+			uint32_t ialpha=255-fa;
+			for(int i=0;i<r;i++)
+			{
+				int b=ctx->stride*(y+i)+(x+r);
+				int e=b+w-2*r-1;
+				for(int j=b;j<=e;j++)
+					pixels[j]=fillColor+l_sdf_byte_mul(pixels[j],ialpha);
+			}
+			for(int i=r;i<h-r;i++)
+			{
+				int b=ctx->stride*(y+i)+x;
+				int e=b+w-1;
+				for(int j=b;j<=e;j++)
+					pixels[j]=fillColor+l_sdf_byte_mul(pixels[j],ialpha);
+			}
+			for(int i=h-r;i<h;i++){
+				int b=ctx->stride*(y+i)+x+r;
+				int e=b+w-2*r-1;
+				for(int j=b;j<=e;j++)
+					pixels[j]=fillColor+l_sdf_byte_mul(pixels[j],ialpha);
+			}
 		}
 		if(line_width==0.0f)
 		{
@@ -564,7 +609,7 @@ int l_sdf_rect(L_SDF_CONTEXT *ctx,int w,int h,int r)
 				}
 			}
 		}
-		
+
 	}
 	if(line_width)
 	{
@@ -732,3 +777,348 @@ void l_sdf_context_init(L_SDF_CONTEXT *ctx,void *pixels,int w,int h)
 	ctx->shadow.y2=0.0f;
 }
 
+#if L_USE_SDF_DRAW
+
+L_SDF_SURFACE *l_sdf_surface_new(int w, int h)
+{
+	L_SDF_SURFACE *s=l_new(L_SDF_SURFACE);
+	if(w<0 || h<0 || w>=0x8000 || h>=0x8000)
+		return NULL;
+	s->width=w;
+	s->height=h;
+	s->stride=w;
+	s->pixels=l_alloc(sizeof(uint32_t)*w*h);
+	return s;
+}
+
+void l_sdf_surface_free(L_SDF_SURFACE *s)
+{
+	if(!s)
+		return;
+	l_free(s->pixels);
+	l_free(s);
+}
+
+L_SDF_SURFACE l_sdf_surface_slice(L_SDF_SURFACE *surface,int x,int y,int w,int h)
+{
+	L_SDF_SURFACE r;
+	x=CLAMP(x, 0, surface->width-1);
+	y=CLAMP(y, 0, surface->height-1);
+	w=CLAMP(w, 0, surface->width-x);
+	h=CLAMP(h, 0, surface->height-y);
+	r.width=w;
+	r.height=h;
+	r.stride=surface->stride;
+	r.pixels=surface->pixels+y*surface->stride+x;
+	return r;
+}
+
+L_SDF_SURFACE *l_sdf_surface_copy(const L_SDF_SURFACE *surface)
+{
+	const int sw=surface->width;
+	const int sh=surface->height;
+	const int stride=surface->stride;
+	L_SDF_SURFACE *r=l_new(L_SDF_SURFACE);
+	r->width=sw;
+	r->height=sh;
+	r->stride=sw;
+	r->pixels=l_alloc(sizeof(uint32_t)*sw*sh);
+	if(sw==stride)
+	{
+		memcpy(r->pixels,surface->pixels,sw*sh*sizeof(uint32_t));
+	}
+	else
+	{
+		for(int y=0;y<sh;y++)
+		{
+			memcpy(r->pixels+y*sw,surface->pixels+y*stride,sizeof(uint32_t)*sw);
+		}
+	}
+	return r;
+}
+
+// surface scale and draw code
+static inline uint32_t blend(uint32_t p0, uint32_t p1, uint32_t w)
+{
+	const uint32_t M = 0x00FF00FFu;
+	uint32_t iw=256u-w;
+	uint32_t lo = iw * (p0     & M) + w * (p1     & M);
+	uint32_t hi = iw * ((p0>>8)& M) + w * ((p1>>8)& M);
+	lo = ((lo + 0x00800080u) >> 8) & M;
+	hi = ((hi + 0x00800080u) >> 8) & M;
+	return lo | (hi << 8);
+}
+
+static void map_nearest(int src, int dst, int *m)
+{
+#if 0
+	const float k=(float)src/dst;
+	for (int x = 0; x < dst; x++)
+	{
+		float s = (x + 0.5f) * k - 0.5f;
+		int i = (int)(s + 0.5);
+		m[x] = CLAMP(i, 0, src - 1);
+	}
+#else
+	// Q16.16定点数实现
+	const uint32_t k = (src << 16) / dst;
+	// o = 0.5f * k
+	const uint32_t o = (k * 0x8000) >> 16;
+	for (int x = 0; x < dst; x++)
+	{
+		uint32_t s = x * k + o;
+		int i = (int)(s >> 16);
+		m[x] = CLAMP(i, 0, src - 1);
+	}
+#endif
+}
+
+static void map_bilinear(int src, int dst, int *i0, int *i1, uint32_t *w)
+{
+#if 0
+    const float k = (float)src / dst;
+    for (int x = 0; x < dst; x++)
+    {
+        float s = (x + 0.5f) * k - 0.5f;
+        s=CLAMP(s, 0, src-1);
+        int i = (int)s;
+        int j = i + 1;
+        if(j>=src) j=src-1;
+        i0[x] = i;
+        i1[x] = j;
+        w[x]  = (j == i) ? 0 : (uint32_t)((s - i) * 256.0 + 0.5);
+    }
+#else
+	// Q16.16定点数实现
+	const uint32_t k = (src << 16) / dst;
+	// o = 0.5f * k - 0.5f;
+	const uint32_t o = ((k * 0x8000) >> 16) - 0x8000;
+	// s1 = src - 1;
+	const uint32_t s1 = (src - 1) << 16;
+	for (int x = 0; x < dst; x++)
+	{
+		uint32_t s = x * k + o;
+		s=CLAMP(s, 0, s1);
+		int i = (int)(s >> 16);
+		uint32_t frac = s & 0xFFFF;
+		int j = i + 1;
+		if(j>=src) j=src-1;
+		i0[x] = i;
+		i1[x] = j;
+		w[x]  = (uint32_t)((frac * 256 + 0x8000) >> 16);
+	}
+#endif
+}
+
+static L_SDF_SURFACE *scale_nearest(const L_SDF_SURFACE *src, int w, int h)
+{
+	const int sw=src->width;
+	L_SDF_SURFACE *dst=l_sdf_surface_new(w,h);
+	int *my=l_alloca(sizeof(int)*h);
+	map_nearest(src->height, h, my);
+	int *mx=l_alloca(sizeof(int)*w);
+	map_nearest(sw, w, mx);
+	for (int y = 0; y < h; y++)
+	{
+		const uint32_t *s = src->pixels + my[y] * src->stride;
+		uint32_t       *d = dst->pixels + (size_t)y * w;
+		for (int x = 0; x < w; x++)
+		{
+			d[x] = s[mx[x]];
+		}
+	}
+	return dst;
+}
+
+static L_SDF_SURFACE *scale_bilinear(const L_SDF_SURFACE *src, int w, int h)
+{
+	const int sw=src->width, sh=src->height;
+	L_SDF_SURFACE *dst=l_sdf_surface_new(w,h);
+
+	int *mx_i0=l_alloca(sizeof(int)*w);
+	int *mx_i1=l_alloca(sizeof(int)*w);
+	uint32_t *mx_w=l_alloca(sizeof(uint32_t)*w);
+	map_bilinear(sw, w, mx_i0, mx_i1, mx_w);
+
+	int *my_i0=l_alloca(sizeof(int)*h);
+	int *my_i1=l_alloca(sizeof(int)*h);
+	uint32_t *my_w=l_alloca(sizeof(uint32_t)*h);
+	map_bilinear(sh, h, my_i0, my_i1, my_w);
+
+	for (int y = 0; y < h; y++)
+	{
+		const uint32_t *s0 = src->pixels + my_i0[y] * src->stride;
+		const uint32_t *s1 = src->pixels + my_i1[y] * src->stride;
+		uint32_t       *d = dst->pixels + y * w;
+		uint32_t wy = my_w[y];
+
+		for (int x = 0; x < w; x++)
+		{
+			uint32_t wx = mx_w[x];
+			int x0 = mx_i0[x], x1 = mx_i1[x];
+			uint32_t t1 = blend(s0[x0], s0[x1], wx);
+			uint32_t t2 = blend(s1[x0], s1[x1], wx);
+			d[x] = blend(t1, t2, wy);
+		}
+	}
+
+	return dst;
+}
+
+L_SDF_SURFACE *l_sdf_surface_scale(const L_SDF_SURFACE *src, int w, int h, int mode)
+{
+	if(src->width == w && src->height == h)
+		return l_sdf_surface_copy(src);
+	if(mode == L_SDF_NEAREST)
+		return scale_nearest(src, w, h);
+	else if(mode == L_SDF_BILINEAR)
+		return scale_bilinear(src, w, h);
+	return NULL;
+}
+
+static void draw_blit(L_SDF_CONTEXT *ctx, const L_SDF_SURFACE *src,
+	int dst_x, int dst_y, int src_x, int src_y, int w, int h)
+{
+	const uint32_t *s = src->pixels + (size_t)src_y * src->stride + src_x;
+	uint32_t *d = ctx->pixels + (size_t)dst_y * ctx->stride + dst_x;
+	for (int y = 0; y < h; y++)
+	{
+		for (int x = 0; x < w; x++)
+		{
+			uint32_t sx=s[x];
+			uint32_t a=L_SDF_ALPHA(sx);
+			if(a==255u)
+			{
+				d[x]=sx;
+			}
+			else if(a>0)
+			{
+				d[x] = sx + l_sdf_byte_mul(d[x], 255u-a);
+			}
+		}
+		s += src->stride;
+		d += ctx->stride;
+	}
+}
+
+void l_sdf_draw(L_SDF_CONTEXT *ctx, const L_SDF_SURFACE *s, int w, int h)
+{
+	int x0 = ctx->x > 0 ? ctx->x : 0;
+	int y0 = ctx->y > 0 ? ctx->y : 0;
+	int x1 = ctx->x + w;
+	int y1 = ctx->y + h;
+	if(x1 > ctx->width)
+		x1 = ctx->width;
+	if(y1 > ctx->height)
+		y1 = ctx->height;
+	if (x0 >= x1 || y0 >= y1)
+		return;
+
+	if (s->width == w && s->height == h)
+	{
+		draw_blit(ctx, s, x0, y0, x0-ctx->x, y0-ctx->y, x1-x0, y1-y0);
+		return;
+	}
+
+	if(s->height == h)
+	{
+		int *mx_i0=l_alloca(sizeof(int)*w);
+		int *mx_i1=l_alloca(sizeof(int)*w);
+		uint32_t *mx_w=l_alloca(sizeof(uint32_t)*w);
+		map_bilinear(s->width, w, mx_i0, mx_i1, mx_w);
+
+		for (int y = y0; y < y1; y++)
+		{
+			int jy = y - ctx->y;
+			const uint32_t *s0 = s->pixels + jy * s->stride;
+			uint32_t *d = ctx->pixels + y * ctx->stride;
+			for (int x = x0; x < x1; x++)
+			{
+				int jx = x - ctx->x;
+				uint32_t wx = mx_w[jx];
+				int sx0 = mx_i0[jx], sx1 = mx_i1[jx];
+				uint32_t t1 = blend(s0[sx0], s0[sx1], wx);
+				uint32_t a = L_SDF_ALPHA(t1);
+				if(a==255)
+				{
+					d[x]=t1;
+				}
+				else if(a>0)
+				{
+					d[x] = t1 + l_sdf_byte_mul(d[x],255-a);
+				}
+			}
+		}
+	}
+	else if(s->width == w)
+	{
+		int *my_i0=l_alloca(sizeof(int)*h);
+		int *my_i1=l_alloca(sizeof(int)*h);
+		uint32_t *my_w=l_alloca(sizeof(uint32_t)*h);
+		map_bilinear(s->height, h, my_i0, my_i1, my_w);
+
+		for (int y = y0; y < y1; y++)
+		{
+			int jy = y - ctx->y;
+			const uint32_t *s0 = s->pixels + my_i0[jy] * s->stride;
+			const uint32_t *s1 = s->pixels + my_i1[jy] * s->stride;
+			const uint32_t wy = my_w[jy];
+			uint32_t *d = ctx->pixels + y * ctx->stride;
+			for (int x = x0; x < x1; x++)
+			{
+				int jx = x - ctx->x;
+				uint32_t t1 = blend(s0[jx], s1[jx], wy);
+				uint32_t a = L_SDF_ALPHA(t1);
+				if(a==255)
+				{
+					d[x]=t1;
+				}
+				else if(a>0)
+				{
+					d[x] = t1 + l_sdf_byte_mul(d[x],255-a);
+				}
+			}
+		}
+	}
+	else
+	{
+		int *mx_i0=l_alloca(sizeof(int)*w);
+		int *mx_i1=l_alloca(sizeof(int)*w);
+		uint32_t *mx_w=l_alloca(sizeof(uint32_t)*w);
+		map_bilinear(s->width, w, mx_i0, mx_i1, mx_w);
+
+		int *my_i0=l_alloca(sizeof(int)*h);
+		int *my_i1=l_alloca(sizeof(int)*h);
+		uint32_t *my_w=l_alloca(sizeof(uint32_t)*h);
+		map_bilinear(s->height, h, my_i0, my_i1, my_w);
+
+		for (int y = y0; y < y1; y++)
+		{
+			int jy = y - ctx->y;
+			const uint32_t *s0 = s->pixels + my_i0[jy] * s->stride;
+			const uint32_t *s1 = s->pixels + my_i1[jy] * s->stride;
+			const uint32_t wy = my_w[jy];
+			uint32_t *d = ctx->pixels + y * ctx->stride;
+			for (int x = x0; x < x1; x++)
+			{
+				int jx = x - ctx->x;
+				uint32_t wx = mx_w[jx];
+				int sx0 = mx_i0[jx], sx1 = mx_i1[jx];
+				uint32_t t1 = blend(s0[sx0], s0[sx1], wx);
+				uint32_t t2 = blend(s1[sx0], s1[sx1], wx);
+				t1 = blend(t1, t2, wy);
+				uint32_t a = L_SDF_ALPHA(t1);
+				if(a==255)
+				{
+					d[x]=t1;
+				}
+				else if(a>0)
+				{
+					d[x] = t1 + l_sdf_byte_mul(d[x],255-a);
+				}
+			}
+		}
+	}
+}
+
+#endif // L_USE_SDF_DRAW

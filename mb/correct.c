@@ -105,7 +105,7 @@ bool correct_run(char *s,struct y_mb *mb,int filter,int *count)
 		strcpy(temp,s);
 		for(CORRECT_TARGET *t=item->target;t!=NULL;t=t->next)
 		{
-			if(!mb)
+			if(!mb || mb->pinyin)
 			{
 				strcpy(s+pos,t->code);
 				if(count)

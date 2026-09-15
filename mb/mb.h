@@ -1,19 +1,11 @@
 #ifndef _MB_H_
 #define _MB_H_
 
-#include <stdint.h>
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <ctype.h>
-#include <stdarg.h>
-#include <assert.h>
-#include <stdbool.h>
+#include "llib.h"
 
 #include "yong.h"
-#include "trie.h"
 #include "pinyin.h"
+#include "bloom.h"
 
 #define Y_MB_KEY_SIZE		63
 #define Y_MB_DATA_SIZE		255
@@ -150,16 +142,28 @@ struct y_mb_zi_first{
 	struct y_mb_ci *ci;
 };
 
+struct y_mb_sp_custom_ci{
+	struct y_mb_sp_custom_ci *next;
+	struct y_mb_ci *ci;
+	int pos;
+};
+struct y_mb_sp_custom_item{
+	struct y_mb_sp_custom *next;
+	char code[12];
+	struct y_mb_sp_custom_ci *cands;
+};
+
 /* user phrase */
 #define Y_MB_DELETE		(-1)
 #define Y_MB_PREPEND	(0)
 #define Y_MB_APPEND		(0x7fffffff)
 
 #define Y_MB_DIC_MAIN	0x00
-#define Y_MB_DIC_SUB	0x01
-#define Y_MB_DIC_USER	0x05
-#define Y_MB_DIC_TEMP	0x06
-#define Y_MB_DIC_ASSIST	0x07
+#define Y_MB_DIC_USER	0x01
+#define Y_MB_DIC_SUB	0x02
+#define Y_MB_DIC_FUZZY	0x03
+#define Y_MB_DIC_TEMP	0x04
+#define Y_MB_DIC_ASSIST	0x05
 
 /* MB */
 struct y_mb{
@@ -249,7 +253,6 @@ struct y_mb{
 	/* index of the mb */
 	struct y_mb_index *index;
 	struct y_mb_index *half;
-	trie_tree_t *trie;
 	
 	/* pin mb index */
 	void *pin;
@@ -268,6 +271,12 @@ struct y_mb{
 
 	/* first zi array at the code */
 	LHashTable *zi_first;
+
+	/* filter code not exist */
+	BloomFilter *bloom;
+
+	/* custom user phrase just for sp */
+	LHashTable *sp_custom;
 };
 
 #define MB_DUMP_MAIN	0x01
@@ -339,14 +348,14 @@ void y_mb_pop_context(struct y_mb *mb,struct y_mb_context *ctx);
 int y_mb_assist_get(struct y_mb *mb,char calc[][MAX_CAND_LEN+1],int max,char super,int end);
 int y_mb_assist_get2(struct y_mb *mb,char calc[][MAX_CAND_LEN+1],int max,char super[2],int end);
 int y_mb_before_assist(struct y_mb *mb);
-struct y_mb_ci *y_mb_code_exist(struct y_mb *mb,const char *code,int len,int count);
+struct y_mb_ci *y_mb_code_exist(struct y_mb *mb,const char *code,int len);
 int y_mb_code_cmp(const struct y_mb_code *c1,const struct y_mb_code *c2,int len);
 void y_mb_code_get_string(const struct y_mb *mb,const struct y_mb_code *c,char *out);
 struct y_mb_ci *y_mb_ci_exist(struct y_mb *mb,const char *data,int dic);
 int y_mb_is_good_code(struct y_mb *mb,const char *code,int clen,const char *s);
 char *y_mb_ci_string(struct y_mb_ci *ci);
 int y_mb_ci_string2(struct y_mb_ci *ci,char *out);
-int y_mb_predict_simple(struct y_mb *mb,char *s,char *out,int *out_len,int (*freq)(const char *));
+int y_mb_predict_simple(struct y_mb *mb,const py_item_t *items,int count,char *out,int *out_len,int (*freq)(const char *));
 struct y_mb_item *y_mb_get_zi(struct y_mb *mb,const char *s,int len,int filter);
 int y_mb_in_result(struct y_mb *mb,struct y_mb_ci *c);
 int y_mb_assist_test(struct y_mb *mb,struct y_mb_ci *c,char super,int n,int end);
@@ -370,6 +379,8 @@ bool y_mb_ci_py_match(struct y_mb *mb,struct y_mb_ci *c,py_item_t *input,int cou
 
 /* yong only */
 void y_mb_calc_yong_tip(struct y_mb *mb,const char *code,const char *cand,char *tip);
+
+bool y_mb_sp_custom_empty(struct y_mb_sp_custom_item *cit);
 
 #ifdef _WIN32
 extern __declspec(dllexport) EXTRA_IM EIM;

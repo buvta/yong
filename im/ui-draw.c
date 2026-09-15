@@ -1,4 +1,3 @@
-#include <llib.h>
 #include <math.h>
 #include <assert.h>
 #include "ui-draw.h"
@@ -282,6 +281,19 @@ void ui_draw_text(DRAW_CONTEXT1 *ctx,UI_FONT font,int x_i,int y_i,const void *te
 	pango_cairo_show_layout(dc,font->pango);
 }
 
+#if USE_WUI
+static L_SDF_SURFACE ui_image_to_sdf_surface(UI_IMAGE image)
+{
+	L_SDF_SURFACE s;
+	s.width=cairo_image_surface_get_width(image);
+	s.height=cairo_image_surface_get_height(image);
+	s.stride=cairo_image_surface_get_stride(image)/4;
+	s.pixels=(uint32_t*)cairo_image_surface_get_data(image);
+	return s;
+}
+#endif
+
+#if 0
 void ui_draw_image(DRAW_CONTEXT1 *ctx,UI_IMAGE image,int x_i,int y_i)
 {
 	cairo_t *dc=ctx->dc;
@@ -296,12 +308,13 @@ void ui_draw_image(DRAW_CONTEXT1 *ctx,UI_IMAGE image,int x_i,int y_i)
 	cairo_paint(dc);
 	cairo_reset_clip(dc);
 }
+#endif
 
+#if USE_WUI
 void ui_stretch_image(DRAW_CONTEXT1 *ctx,UI_IMAGE image,int x_i,int y_i,int w_i,int h_i)
 {
 	cairo_t *cr=ctx->dc;
 	double x=ctx->scale*(x_i+ctx->tx),y=ctx->scale*(y_i+ctx->ty),w=ctx->scale*w_i,h=ctx->scale*h_i;
-	
 	int w0, h0;
     ui_image_size(image, &w0, &h0);
 
@@ -322,6 +335,16 @@ void ui_stretch_image(DRAW_CONTEXT1 *ctx,UI_IMAGE image,int x_i,int y_i,int w_i,
     int aligned_dw = (int)(dw + 0.5);
     int aligned_dh = (int)(dh + 0.5);
 
+	cairo_surface_t *target=cairo_get_target(ctx->dc);
+	cairo_surface_flush(target);
+
+	l_sdf_moveto(&ctx->sdf,aligned_dx,aligned_dy);
+	L_SDF_SURFACE sdf_image=ui_image_to_sdf_surface(image);
+	l_sdf_draw(&ctx->sdf,&sdf_image,aligned_dw,aligned_dh);
+
+	cairo_surface_mark_dirty(target);
+
+#if 0
     cairo_save(cr);
     cairo_identity_matrix(cr); 
 
@@ -352,15 +375,17 @@ void ui_stretch_image(DRAW_CONTEXT1 *ctx,UI_IMAGE image,int x_i,int y_i,int w_i,
     }
 
     cairo_restore(cr);
+#endif
 }
 
-#if 0
+#else
 void ui_stretch_image(DRAW_CONTEXT1 *ctx,UI_IMAGE image,int x_i,int y_i,int w_i,int h_i)
 {
 	double x=round(ctx->scale*x_i),y=round(ctx->scale*y_i),w=round(ctx->scale*w_i),h=round(ctx->scale*h_i);
 	cairo_t *dc=ctx->dc;
 	int w0,h0;
 	double sx=1,sy=1;
+	double ox=0,oy=0;
 	
 	if(!image)
 		return;
@@ -369,18 +394,20 @@ void ui_stretch_image(DRAW_CONTEXT1 *ctx,UI_IMAGE image,int x_i,int y_i,int w_i,
 
 	if(w!=w0)
 	{
-		sx=(double)w/(double)w0;
+		sx=(double)w/(double)(w0-1);
+		ox=-0.5;
 	}
 	if(h!=h0)
 	{
-		sy=(double)h/(double)h0;
+		sy=(double)h/(double)(h0-1);
+		oy=-0.5;
 	}
 	cairo_save(dc);
 	cairo_translate(dc,x,y);
 	cairo_rectangle(dc,0,0,w,h);
 	cairo_clip(dc);
 	cairo_scale(dc,sx,sy);
-	cairo_set_source_surface(dc,image,0,0);
+	cairo_set_source_surface(dc,image,ox,oy);
 	cairo_paint(dc);
 
 	cairo_restore(dc);
@@ -480,7 +507,7 @@ static void image_size_cb(GdkPixbufLoader *loader,gint width,gint height,UI_SIZE
 	}
 }
 
-GdkPixbuf *ui_image_load_pixbuf_at_size(const char *file,int width,int height,int where)
+static GdkPixbuf *ui_image_load_pixbuf_at_size(const char *file,int width,int height,int where)
 {
 	char path[256];
 	GdkPixbuf *pixbuf;
@@ -551,10 +578,9 @@ UI_IMAGE ui_image_load_at_size(const char *file,int width,int height,int where)
 		g_object_unref(pixbuf);
 		return NULL;
 	}
-	int format=n_channels==4?CAIRO_FORMAT_ARGB32:CAIRO_FORMAT_RGB24;
 	width=gdk_pixbuf_get_width(pixbuf);
 	height=gdk_pixbuf_get_height(pixbuf);
-	UI_IMAGE r=cairo_image_surface_create(format,width,height);
+	UI_IMAGE r=cairo_image_surface_create(CAIRO_FORMAT_ARGB32,width,height);
 	cairo_surface_flush(r);
 	const uint8_t *src=gdk_pixbuf_get_pixels(pixbuf);
 	uint8_t *dst=cairo_image_surface_get_data(r);
@@ -569,15 +595,10 @@ UI_IMAGE ui_image_load_at_size(const char *file,int width,int height,int where)
 		{
 			if(n_channels==3)
 			{
-#if L_BYTE_ORDER==L_LITTLE_ENDIAN
 				q[0]=p[2];
 				q[1]=p[1];
 				q[2]=p[0];
-#else
-				q[1]=p[0];
-				q[2]=p[1];
-				q[3]=p[2];
-#endif
+				q[3]=255;
 				p+=3;
 				q+=4;
 			}

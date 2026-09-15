@@ -27,6 +27,15 @@ void l_array_sort_r(LArray *array,LCmpDataFunc cmp,void *arg);
 #define l_array_bsearch_left(array,key,cmp)	l_bsearch_left((key),(array)->data,(array)->len,(array)->size,cmp)
 
 #define L_ARRAY_INIT(size) (LArray){.size=(size)}
+#define L_ARRAY_INIT_COUNT(_count,_size)	\
+({											\
+ 	typeof(c) _c=(_count);					\
+	(LPtrArray){							\
+ 		.size=_size,						\
+ 		.ptr=l_cnew(_c,void*),				\
+		.count=_c							\
+	};										\
+})
 #define L_ARRAY_INIT_WITH(arr) (LArray){.size=sizeof(arr[0]),.data=(char*)(arr),.count=lengthof(arr)}
 #define L_ARRAY_IS_FULL(array) ((array)->len==(array)->count)
 

@@ -190,7 +190,7 @@ static char *url_get_auth(const char *url)
 		return NULL;
 	if(!strncmp(url,"http://",7))
 		url+=7;
-	p=strchr(url,'@');
+	p=(char*)strchr(url,'@');
 	if(!p)
 		return NULL;
 	user[0]=0;pass[0]=0;

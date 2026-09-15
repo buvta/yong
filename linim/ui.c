@@ -1985,9 +1985,10 @@ static char *ui_get_select(int (*cb)(const char *))
 
 static void ui_set_select(const char *text)
 {
-	wui->clipboard_set_text(text);
+	char temp[8192];
+	l_gb_to_utf8(text,temp,sizeof(temp));
+	wui->clipboard_set_text(temp);
 }
-
 
 static int ui_calc_with_metrics(const char *s)
 {

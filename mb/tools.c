@@ -159,7 +159,7 @@ int y_mb_diff(struct y_mb *mb,FILE *fp,char *fn,int strict)
 			char *codes[]={code,NULL};
 			if(y_mb_code_by_rule(mb,line,strlen(line),codes,NULL)!=0)
 				continue;
-			if(y_mb_code_exist(mb,code,strlen(code),-1))
+			if(y_mb_code_exist(mb,code,strlen(code)))
 				continue;
 		}
 		fprintf(fp,"%s\n",line);
@@ -374,6 +374,8 @@ int y_mb_dump(struct y_mb *mb,FILE *fp,int option,int format,char *pre)
 					if(cp->dic==Y_MB_DIC_ASSIST)
 						continue;
 					if(cp->dic==Y_MB_DIC_SUB && !(option&MB_DUMP_DICTS))
+						continue;
+					if(cp->dic==Y_MB_DIC_FUZZY)
 						continue;
 					data=y_mb_ci_string(cp);
 					int revert=0;

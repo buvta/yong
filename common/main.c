@@ -1131,7 +1131,10 @@ void update_im(void)
 	caps_bd_mode=y_im_get_config_int("IM","caps_bd");
 	
 	eim=(char*)y_im_get_config_data("IM","sym_in_num");
-	snprintf(sym_in_num,sizeof(sym_in_num),"%s",eim?:".");
+	if(l_str_equal(eim,"NONE"))
+		sym_in_num[0]=0;
+	else
+		l_strcpy(sym_in_num,sizeof(sym_in_num),eim?:"._");
 	
 	l_strfreev(sym_select);
 	sym_select=NULL;

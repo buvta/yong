@@ -60,9 +60,8 @@ void *l_array_append(LArray *array,const void *val)
 
 void l_array_insert(LArray *array,int n,const void *val)
 {
-	char *orig;
 	l_array_expand(array);
-	orig=array->data+array->size*n;
+	char *orig=array->data+array->size*n;
 	memmove(orig+array->size,orig,(array->len-n)*array->size);
 	memcpy(orig,val,array->size);
 	array->len++;

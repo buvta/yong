@@ -182,9 +182,9 @@ static inline void l_bitmap_clr(void *bm,int i)
 	p[i / 8] &= ~(1 << (i % 8));
 }
 
-static inline uint8_t l_bitmap_get(void *bm,int i)
+static inline uint8_t l_bitmap_get(const void *bm,int i)
 {
-	uint8_t *p=bm;
+	const uint8_t *p=bm;
 	return (p[i/8]>>(i%8))&0x01;
 }
 

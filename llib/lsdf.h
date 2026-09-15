@@ -13,6 +13,11 @@ typedef struct{
 	float x1,y1,x2,y2;
 }L_SDF_SHADOW;
 
+enum{
+	L_SDF_NEAREST=0,
+	L_SDF_BILINEAR=1,
+};
+
 typedef struct{
 	uint32_t *pixels;
 	int width;
@@ -85,13 +90,15 @@ static inline void l_sdf_set_shadow(L_SDF_CONTEXT *ctx,float x1,float y1,float x
 	ctx->shadow.y2=y2;
 }
 
-static inline L_SDF_SURFACE *l_sdf_slice(L_SDF_SURFACE *surface,int x,int y,int w,int h)
-{
-	L_SDF_SURFACE *r=l_newa(L_SDF_SURFACE);
-	r->width=w;
-	r->height=h;
-	r->stride=surface->stride;
-	r->pixels=surface->pixels+h*r->stride+x;
-	return r;
-}
+#ifdef __WIN32
+#define L_USE_SDF_DRAW		0
+#else
+#define L_USE_SDF_DRAW		1
+#endif
 
+L_SDF_SURFACE *l_sdf_surface_new(int w, int h);
+void l_sdf_surface_free(L_SDF_SURFACE *s);
+L_SDF_SURFACE l_sdf_surface_slice(L_SDF_SURFACE *surface,int x,int y,int w,int h);
+L_SDF_SURFACE *l_sdf_surface_copy(const L_SDF_SURFACE *surface);
+L_SDF_SURFACE *l_sdf_surface_scale(const L_SDF_SURFACE *src, int w, int h, int mode);
+void l_sdf_draw(L_SDF_CONTEXT *ctx, const L_SDF_SURFACE *s, int w, int h);

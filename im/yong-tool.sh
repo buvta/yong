@@ -1018,7 +1018,7 @@ function install64()
 		exit 1
 	fi
 	
-	ln -sf `pwd`/l64/yong-gtk3 /usr/bin/yong
+	ln -sf `pwd`/l64/yong-wui /usr/bin/yong
 	ln -sf `pwd`/l64/yong-config-gtk3 /usr/bin/yong-config
 	
 	locale_install

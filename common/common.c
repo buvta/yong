@@ -2411,6 +2411,10 @@ char *y_im_str_escape(const char *s,int commit,int64_t t)
 		{
 			str_replace(ps-1,5,last_output);
 		}
+		else if(!strncmp(ps,"NONE",4))
+		{
+			str_replace(ps-1,5,"");
+		}
 		s=ps;ps=(char*)strchr(s,'$');
 	}while(ps!=NULL);
 	return line;

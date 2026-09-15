@@ -14,6 +14,7 @@ char *l_str_trim_left(char *str);
 char *l_str_trim_right(char *str);
 char *l_str_trim(char *str);
 int l_str_replace(char *s,int from,int to);
+bool l_str_equal(const char *s1,const char *s2);
 bool l_str_is_ascii(const char *s);
 
 typedef struct{

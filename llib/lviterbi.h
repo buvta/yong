@@ -14,6 +14,7 @@ typedef struct{
 	int32_t p;			// 此状态的概率，经过了log处理
 	uint8_t prev;		// 上一个位置top数组中的下标
 	uint8_t len;		// 到达此位置长度
+	uint8_t nodes;		// 到达此位置的节点数量
 	void *choice;		// 保存用户和此状态相关的数据
 }L_VITERBI_STATE1;
 

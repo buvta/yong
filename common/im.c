@@ -332,12 +332,18 @@ void y_im_load_punc(void)
 		if(temp[0]=='#') continue;
 		ret=l_sscanf(temp,"%8s %11s %8s",code,bd1,bd2);
 		if(ret<2)
+		{
 			break;
+		}
 		if(ret==2) bd2[0]=0;
 		if(strlen(code)!=1 || strlen(bd1)>10 || strlen(bd2)>4)
+		{
 			break;
+		}
 		if(code[0]<=0x20 || code[0]>=0x7f)
+		{
 			break;
+		}
 		p=strchr(punc,code[0]);
 		if(p) ret=p-punc;
 		else ret=strlen(punc);

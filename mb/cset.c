@@ -389,8 +389,10 @@ int cset_array_group_append(CSET_GROUP_ARRAY *g,const char *cand,const char *cod
 	return 0;
 }
 
-static int cset_array_group_insert(CSET_GROUP_ARRAY *g,int n,const char *cand,const char *codetip)
+int cset_array_group_insert(CSET_GROUP_ARRAY *g,int n,const char *cand,const char *codetip)
 {
+	if(n<0 || n>=g->array->len)
+		return cset_array_group_append(g,cand,codetip);
 	CSET_GROUP_ARRAY_ITEM item;
 	item.cand=l_strdup(cand);
 	item.codetip=codetip?l_strdup(codetip):NULL;
